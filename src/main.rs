@@ -51,9 +51,24 @@ fn main() {
             Command::TypeCommand {command_name} => {
                 if BUILT_IN_COMMANDS.contains(&command_name.as_str()){
                     println!("{} is a shell builtin",command_name);
-                } else {
-                    println!("{}: not found", command_name);
+                    continue;
                 }
+                let mut found = false;
+                //finding the files using rust std library
+                if let Some(path_var) = std::env::var_os("PATH"){
+                    for dir in std::env::split_paths(&path_var){
+                        let full_path = dir.join(&command_name);
+                        
+                        // skip if file/comand does not exist
+                        if !full_path.exists(){
+                            continue;
+                        }else {
+                            println!("{} is {}", command_name, full_path.display());
+                            found=true;
+                        }
+                    }
+                }
+                if !found{println!("{}: not found", command_name)};
             },
             Command::CommandNotFound => println!("{}: command not found", input.trim()),
         }
