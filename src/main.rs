@@ -52,7 +52,7 @@ fn main() {
                 if BUILT_IN_COMMANDS.contains(&command_name.as_str()){
                     println!("{} is a shell builtin",command_name);
                 } else {
-                    println!("{}: command not found", command_name);
+                    println!("{}: not found", command_name);
                 }
             },
             Command::CommandNotFound => println!("{}: command not found", input.trim()),
