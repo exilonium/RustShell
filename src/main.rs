@@ -55,7 +55,7 @@ fn main() {
                     println!("{}: command not found", command_name);
                 }
             },
-            Command::CommandNotFound => println!("{} bruh command not found", input.trim()),
+            Command::CommandNotFound => println!("{}: command not found", input.trim()),
         }
     }
 }
