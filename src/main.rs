@@ -16,17 +16,17 @@ impl Command{
         if input == "exit" || input == "exit 0" {
             return Self::ExitCommand;
         };
-        if let Some(pos) = input.find("echo ") {
+        if let Some(pos) = input.find("echo") {
             if pos ==0{
                 return Self::EchoCommand{
-                    display_string: input["echo ".len()..].to_string(),
+                    display_string: input["echo".len()..].trim().to_string(),
                 };
             }
         }
-        if let Some(pos) = input.find("type "){
+        if let Some(pos) = input.find("type"){
             if pos==0 {
                 return Self::TypeCommand{
-                    command_name: input["type ".len()..].to_string(),
+                    command_name: input["type".len()..].trim().to_string(),
                 };
             }
         }
