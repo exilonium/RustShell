@@ -1,7 +1,49 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
+use std::path::PathBuf;
 
 const BUILT_IN_COMMANDS: [&str;3] = ["echo","exit","type"];
+
+enum CommandLocation {
+    Builtin,
+    Executable(PathBuf),
+    NotFound,
+}
+
+impl CommandLocation{
+    fn resolve(command_name:&str) -> Self{
+        if BUILT_IN_COMMANDS.contains(&command_name){
+            return Self::Builtin;
+        }
+        if let Some(path_var) = std::env::var_os("PATH"){
+            for dir in std::env::split_paths(&path_var){
+                let full_path = dir.join(command_name);
+                if !full_path.exists() {continue};
+
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    if let Ok(metadata) = std::fs::metadata(&full_path) {
+                        if metadata.permissions().mode() & 0o111 == 0 {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
+                }
+                return Self::Executable(full_path);
+            }
+        }
+        Self::NotFound
+    }
+    fn describe(&self,name:&str) -> String{
+        match self {
+            CommandLocation::Builtin => format!("{} is a shell builtin", name),
+            CommandLocation::Executable(path) => format!("{} is {}", name, path.display()),
+            CommandLocation::NotFound => format!("{}: not found", name),
+        }
+    }
+}
 
 enum Command{
     ExitCommand,
@@ -49,43 +91,8 @@ fn main() {
             Command::ExitCommand => break,
             Command::EchoCommand {display_string} => println!("{}", display_string),
             Command::TypeCommand {command_name} => {
-                if BUILT_IN_COMMANDS.contains(&command_name.as_str()){
-                    println!("{} is a shell builtin",command_name);
-                    continue;
-                }
-                let mut found = false;
-                //finding the files using rust std library
-                if let Some(path_var) = std::env::var_os("PATH"){
-                    for dir in std::env::split_paths(&path_var){
-                        let full_path = dir.join(&command_name);
-
-                        // skip if file/comand does not exist
-                        if !full_path.exists(){
-                            continue;
-                        }
-
-                        #[cfg(unix)]
-                        {
-                            use std::os::unix::fs::PermissionsExt;
-
-                            if let Ok(metadata) = std::fs::metadata(&full_path) {
-                                let perms = metadata.permissions().mode();
-
-                                // owner/group/other execute bits: 0o111
-                                if perms & 0o111 == 0 {
-                                    continue; // skip non-executable
-                                }
-                            } else {
-                                continue; // could not read metadata
-                            }
-                        }
-
-                        println!("{} is {}", command_name, full_path.display());
-                        found=true;
-                        break;
-                    }
-                }
-                if !found{println!("{}: not found", command_name)};
+                let location = CommandLocation::resolve(&command_name);
+                println!("{}", location.describe(&command_name));
             },
             Command::CommandNotFound => println!("{}: command not found", input.trim()),
         }
