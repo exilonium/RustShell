@@ -6,6 +6,6 @@ fn main() {
     io::stdout().flush().unwrap();
 
     let mut command = String::new();
-    io::stdin().read_lines(&mut command).unwrap():
+    io::stdin().read_line(&mut command).unwrap();
     println!("{}: command not found",command.trim());
 }
