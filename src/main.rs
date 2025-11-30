@@ -65,6 +65,7 @@ fn main() {
                         }else {
                             println!("{} is {}", command_name, full_path.display());
                             found=true;
+                            break;
                         }
                     }
                 }
