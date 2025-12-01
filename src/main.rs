@@ -84,7 +84,18 @@ fn main() {
 
         let mut input = String::new();
         io::stdin().read_line(&mut input).unwrap();
-        
+        if input.is_empty() {
+            continue;
+        }
+
+        // splitting tokens so that i can have the command and arguments
+        let tokens: Vec<String> = input
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
+
+        let cmd_name = tokens[0].clone();
+        let args = &tokens[1..];
         //implementing internal built_in_commands
         let command = Command::from_input(&input);
         match command{
@@ -94,7 +105,22 @@ fn main() {
                 let location = CommandLocation::resolve(&command_name);
                 println!("{}", location.describe(&command_name));
             },
-            Command::CommandNotFound => println!("{}: command not found", input.trim()),
+            Command::CommandNotFound =>{
+                match CommandLocation::resolve(&cmd_name){
+                    CommandLocation::Executable(path) => {
+                        let status = std::process::Command::new(path)
+                            .args(args)
+                            .spawn()
+                            .and_then(|mut child| child.wait());
+                        if status.is_err(){
+                            println!("{}: failed to execute", cmd_name);
+                        }
+                    }
+                    CommandLocation::Builtin => unreachable!(),
+                    CommandLocation::NotFound => println!("{}: command not found", input.trim()),
+                } 
+
+            },
         }
     }
 }
