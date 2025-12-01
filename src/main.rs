@@ -3,7 +3,7 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::os::unix::process::CommandExt;
 
-const BUILT_IN_COMMANDS: [&str;4] = ["echo","exit","type","pwd"];
+const BUILT_IN_COMMANDS: [&str;5] = ["echo","exit","type","pwd","cd"];
 
 enum CommandLocation {
     Builtin,
@@ -53,6 +53,7 @@ enum Command{
     ExternalCommand { program: String, args: Vec<String> },
     CommandNotFound,
     PwdCommand,
+    CdCommand {target : String},
 }
 
 impl Command{
@@ -85,6 +86,17 @@ impl Command{
                 }
             },
             "pwd" => Command::PwdCommand,
+            "cd" => {
+                let target = if args.is_empty(){
+                    match std::env::var("HOME"){
+                        Ok(home) => home,
+                        Err(_) =>"/".to_string(),
+                    } 
+                }else {
+                    args[0].clone()
+                };
+                return Command::CdCommand {target};
+            },
             _ => {
                 let loc = CommandLocation::resolve(&program);
                 match loc {
@@ -148,7 +160,12 @@ fn main() {
                     Ok(path) => println!("{}",path.display()),
                     Err(_) => println!("pwd: error retrieving current directory"),
                 }
-            }
+            },
+            Command::CdCommand {target} =>{
+                if let Err(_) = std::env::set_current_dir(&target){
+                    println!("cd: {}: No such file or directory",target);
+                }
+            },
         }
     }
 }
