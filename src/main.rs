@@ -8,13 +8,15 @@ const BUILT_IN_COMMANDS: [&str;5] = ["echo","exit","type","pwd","cd"];
 fn tokenize(input:&str) -> Vec<String>{
     let mut tokens = Vec::new();
     let mut current = String::new();
-    let mut in_quotes = false;
+    let mut in_single = false;
+    let mut in_double = false;
     
     for c in input.chars(){
         match c{
-            '\''=> in_quotes = !in_quotes, // toggle the quote start and end
+            '\'' if !in_double => in_single = !in_single, // toggle the single quote only if not inside double
+            '"' if !in_single => in_double = !in_double, // toggle the double quote only if not inside single
             // below we are building string of the current stuff inside the '' to not tokenize them
-            ' ' |'\t' if !in_quotes =>{ 
+            ' ' |'\t' if !in_single && !in_double =>{ 
                 if !current.is_empty(){
                     tokens.push(current.clone());
                     current.clear();
