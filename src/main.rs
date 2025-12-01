@@ -5,6 +5,32 @@ use std::os::unix::process::CommandExt;
 
 const BUILT_IN_COMMANDS: [&str;5] = ["echo","exit","type","pwd","cd"];
 
+fn tokenize(input:&str) -> Vec<String>{
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    let mut in_quotes = false;
+    
+    for c in input.chars(){
+        match c{
+            '\''=> in_quotes = !in_quotes, // toggle the quote start and end
+            // below we are building string of the current stuff inside the '' to not tokenize them
+            ' ' |'\t' if !in_quotes =>{ 
+                if !current.is_empty(){
+                    tokens.push(current.clone());
+                    current.clear();
+                }
+            }
+            _ => current.push(c),
+
+        }
+    }
+    if !current.is_empty(){
+        tokens.push(current); // pushing the last token if any
+    }
+
+    tokens
+}
+
 enum CommandLocation {
     Builtin,
     Executable(PathBuf),
@@ -61,10 +87,7 @@ impl Command{
         let input=input.trim();
 
         // splitting tokens so that i can have the command and arguments
-        let tokens: Vec<String> = input
-            .split_whitespace()
-            .map(|s| s.to_string())
-            .collect();
+        let tokens: Vec<String> = tokenize(&input);
 
         if tokens.is_empty() {
             return Command::CommandNotFound;
