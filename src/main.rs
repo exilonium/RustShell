@@ -1,6 +1,7 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
 use std::path::PathBuf;
+use std::os::unix::process::CommandExt;
 
 const BUILT_IN_COMMANDS: [&str;3] = ["echo","exit","type"];
 
@@ -49,31 +50,54 @@ enum Command{
     ExitCommand,
     EchoCommand {display_string:String},
     TypeCommand {command_name: String},
+    ExternalCommand { program: String, args: Vec<String> },
     CommandNotFound,
 }
 
 impl Command{
     fn from_input(input:&str) -> Self {
         let input=input.trim();
-        if input == "exit" || input == "exit 0" {
-            return Self::ExitCommand;
+
+        // splitting tokens so that i can have the command and arguments
+        let tokens: Vec<String> = input
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
+
+        if tokens.is_empty() {
+            return Command::CommandNotFound;
+        }
+        let program = tokens[0].clone();
+        let args = &tokens[1..];
+        let cmd = match program.as_str() {
+            "exit" => Command::ExitCommand,
+            "echo" => Command::EchoCommand {
+                display_string: args.join(" ")
+            },
+            "type" => {
+                if args.is_empty() {
+                    Command::CommandNotFound
+                } else {
+                    Command::TypeCommand {
+                        command_name: args[0].clone()
+                    }
+                }
+            }
+            _ => {
+                let loc = CommandLocation::resolve(&program);
+                match loc {
+                    CommandLocation::Executable(_) => {
+                        Command::ExternalCommand { program,args: args.to_vec() }
+                    }
+                    CommandLocation::NotFound => Command::CommandNotFound,
+                    CommandLocation::Builtin => unreachable!(), // handled above
+                }
+            }
         };
-        if let Some(pos) = input.find("echo") {
-            if pos ==0{
-                return Self::EchoCommand{
-                    display_string: input["echo".len()..].trim().to_string(),
-                };
-            }
-        }
-        if let Some(pos) = input.find("type"){
-            if pos==0 {
-                return Self::TypeCommand{
-                    command_name: input["type".len()..].trim().to_string(),
-                };
-            }
-        }
-        Self::CommandNotFound // we are returning this value
+
+        cmd
     }
+
 
 }
 
@@ -84,18 +108,7 @@ fn main() {
 
         let mut input = String::new();
         io::stdin().read_line(&mut input).unwrap();
-        if input.is_empty() {
-            continue;
-        }
 
-        // splitting tokens so that i can have the command and arguments
-        let tokens: Vec<String> = input
-            .split_whitespace()
-            .map(|s| s.to_string())
-            .collect();
-
-        let cmd_name = tokens[0].clone();
-        let args = &tokens[1..];
         //implementing internal built_in_commands
         let command = Command::from_input(&input);
         match command{
@@ -105,22 +118,29 @@ fn main() {
                 let location = CommandLocation::resolve(&command_name);
                 println!("{}", location.describe(&command_name));
             },
-            Command::CommandNotFound =>{
-                match CommandLocation::resolve(&cmd_name){
-                    CommandLocation::Executable(path) => {
-                        let status = std::process::Command::new(path)
-                            .args(args)
-                            .spawn()
-                            .and_then(|mut child| child.wait());
-                        if status.is_err(){
-                            println!("{}: failed to execute", cmd_name);
+            Command::ExternalCommand {program,args} => {
+                match CommandLocation::resolve(&program) {
+                    CommandLocation::Executable(path) =>{
+                        let child =std::process::Command::new(&path)
+                            .arg0(&program)
+                            .args(&args)
+                            .spawn();
+                        match child {
+                            Ok(mut c) =>{
+                                let _ = c.wait();
+                            }
+                            Err(_) =>{
+                                println!("{}: failed to execute", program);
+                            }
                         }
                     }
-                    CommandLocation::Builtin => unreachable!(),
-                    CommandLocation::NotFound => println!("{}: command not found", input.trim()),
-                } 
+                    _ => println!("{}: command not found",program),
 
-            },
+                }
+            }
+            Command::CommandNotFound =>{
+               println!("{}: command not found", input.trim());
+            } 
         }
     }
 }
