@@ -87,7 +87,7 @@ impl Command{
             },
             "pwd" => Command::PwdCommand,
             "cd" => {
-                let target = if args.is_empty(){
+                let target = if args.is_empty() || args[0]== "~"{
                     match std::env::var("HOME"){
                         Ok(home) => home,
                         Err(_) =>"/".to_string(),
